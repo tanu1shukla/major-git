@@ -1,0 +1,12 @@
+tensorflow==2.10
+keras
+pandas
+numpy
+jupyter
+notebook
+tqdm
+opencv-contrib-python
+scikit-learn
+pillow
+matplotlib
+flask
