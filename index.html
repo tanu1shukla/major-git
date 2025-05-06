@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Real-Time Facial Emotion Detection</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #222; color: #eee; text-align: center; }
+        #container { display: inline-block; position: relative; }
+        #webcam, #canvas { 
+            border-radius: 10px; 
+            box-shadow: 0 0 20px #000; 
+        }
+        #emotion-list {
+            margin-top: 20px;
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <h1>Real-Time Facial Emotion Detection</h1>
+    <div id="container">
+        <video id="webcam" width="480" height="360" autoplay muted style="position:absolute; left:0; top:0; z-index:1;"></video>
+        <canvas id="canvas" width="480" height="360" style="position:absolute; left:0; top:0; z-index:2;"></canvas>
+    </div>
+    <div id="emotion-list"></div>
+
+    <script>
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const emotionList = document.getElementById('emotion-list');
+
+        // Access webcam
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    video.play();
+                    processFrame();
+                };
+            })
+            .catch(err => {
+                alert('Could not access the webcam. Please allow webcam access and reload the page.');
+            });
+
+        async function processFrame() {
+            // Draw the current video frame to the canvas
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            // Get the frame as a base64-encoded JPEG
+            const imageData = canvas.toDataURL('image/jpeg', 0.8);
+
+            // Send the image to the server for emotion prediction
+            try {
+                const response = await fetch('/predictemotion', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: imageData })
+                });
+                const data = await response.json();
+                drawResults(data.results || []);
+            } catch (error) {
+                console.error('Prediction error:', error);
+            }
+
+            // Process the next frame
+            requestAnimationFrame(processFrame);
+        }
+
+        function drawResults(results) {
+            // Redraw the video frame
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Clear emotion list
+            emotionList.innerHTML = "";
+
+            // Draw bounding boxes and labels
+            results.forEach(result => {
+                const { x, y, width, height } = result.coordinates;
+                ctx.strokeStyle = '#00FF00';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x, y, width, height);
+
+                ctx.fillStyle = '#00FF00';
+                ctx.font = '20px Arial';
+                ctx.fillText(result.emotion, x, y - 10);
+
+                // List emotions below video
+                emotionList.innerHTML += `<div>${result.emotion} (x:${x}, y:${y})</div>`;
+            });
+
+            if (results.length === 0) {
+                emotionList.innerHTML = "<div>No face detected</div>";
+            }
+        }
+    </script>
+</body>
+</html>
